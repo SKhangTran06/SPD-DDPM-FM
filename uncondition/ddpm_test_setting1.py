@@ -18,20 +18,20 @@ def ddpm_sample(n,path):
 
 n = 300
 m = 8
-init = pd.read_csv("data/uncondition/exp1_setting1_init.csv")
+init = pd.read_csv("/content/SPD-DDPM-FM/data/uncondition/exp1_setting1_init.csv")
 init =  torch.tensor(init.values)
 init_tensor =  init.repeat(n, 1,1).to("cuda")
-model_path = "result/spd_uncondition.pth"
+model_path = "/content/DDPM-SPD-weights.pth"
 
 sample_list = ddpm_sample(n,model_path)
-test_dis = spd_dis(init_tensor,sample_list).cpu()
-mask1 = torch.isnan(test_dis) == False
-test_dis = test_dis[mask1]
+# test_dis = spd_dis(init_tensor,sample_list).cpu()
+# mask1 = torch.isnan(test_dis) == False
+# test_dis = test_dis[mask1]
 
-print(test_dis.mean())
+# print(test_dis.mean())
 
 vectors = sample_list.reshape(n, m*m).cpu()
 df = pd.DataFrame(vectors)
-df.to_csv("data/uncondition/generated_samples_spd_ddpm.csv.csv",index=False)
+df.to_csv("/content/SPD-DDPM-FM/DDPM-SPD-toy-Eu-weights.csv",index=False)
 
 

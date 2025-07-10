@@ -4,12 +4,14 @@ import torch.nn as nn
 from tqdm import tqdm
 from torch import optim
 from utils import *
+import pandas as pd
 import logging
 from support_function import *
 from SPD_net import SPD_NET
 import warnings
 import numpy as np
 import json
+from utils import *
 from datetime import datetime
 from pyriemann.datasets import sample_gaussian_spd
 import math
@@ -36,7 +38,7 @@ def remove_subtensors_with_nan(input_tensor):
 
 
 class Diffusion:
-    def __init__(self, noise_steps=200, beta_start=1e-4, beta_end=0.08 ,spd_size=20, device="cuda"):
+    def __init__(self, noise_steps=50, beta_start=1e-4, beta_end=0.08 ,spd_size=20, device="cuda"):
         self.noise_steps = noise_steps
         self.beta_start = beta_start
         self.beta_end = beta_end
@@ -80,18 +82,19 @@ class Diffusion:
         return t
 
     def sample(self, model,n):
-        init = pd.read_csv("data/uncondition/exp1_setting1_init.csv")
+        init = pd.read_csv("/content/SPD-DDPM-FM/data/uncondition/exp1_setting1_init.csv")
         init =  torch.tensor(init.values)
         init_tensor =  init.repeat(n, 1,1).to("cuda")
         model.eval()
         with torch.no_grad():
             mean = np.eye(self.spd_size)
-            x = sample_gaussian_spd(n,mean,1,n_jobs=40)
+            # x = sample_gaussian_spd(n,mean,1,n_jobs=40)  #Affine
+            x = RieGauss_sample(8, mean, 1, n, base = True) #Euclidean
             x = torch.tensor(x).to("cuda")
-            test_dis = spd_dis(init_tensor,x).mean().cpu()
-            print(test_dis)
-            for i in reversed(range(1,self.noise_steps)):
-                print(i)
+            # test_dis = spd_dis(init_tensor,x).mean().cpu()
+            # print(test_dis)
+            for i in tqdm(reversed(range(1,self.noise_steps))):
+                # print(i)
                 t = torch.tensor([i]).repeat(n).to("cuda") 
                 beta = self.beta[t][0]
                 beta_hat = torch.sqrt(self.beta_hat[t][0])
@@ -103,7 +106,8 @@ class Diffusion:
 
                 n  = x.shape[0]
                 mean = np.eye(self.spd_size)
-                epi = sample_gaussian_spd(n,mean,1,n_jobs=40)
+                # epi = sample_gaussian_spd(n,mean,1,n_jobs=40)
+                epi = RieGauss_sample(8, mean, 1, n, base = True)
                 epi = torch.tensor(epi).to("cuda")
                 epi_beta = tensor_power(epi,beta_hat.item())
                 predicted_noise = model(x, t)
@@ -120,14 +124,14 @@ class Diffusion:
                 r = 10
                 x = spd_plus(mu_x,spd_mul(epi,sigma/r))
                 
-                test_dis = spd_dis(init_tensor,x).mean().cpu()
+                # test_dis = spd_dis(init_tensor,x).mean().cpu()
 
                 
                 unit_matrix = torch.eye(self.spd_size).unsqueeze(0)  
                 merged_tensor = unit_matrix.repeat(n, 1, 1).to("cuda").double()
                 dis2 = spd_dis(merged_tensor,x).mean().cpu()
 
-                print(test_dis)
+                # print(test_dis)
                 print(loss)
                 print(dis2)
 
